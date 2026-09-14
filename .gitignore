@@ -1,5 +1,5 @@
 build/
-*.imh
-*.0
+*.img
+*.o
 *.bin
 *.elf
