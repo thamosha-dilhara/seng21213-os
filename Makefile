@@ -44,8 +44,8 @@ endif
 BOOT_SRC  := boot/boot.asm
 BOOT_BIN  := boot/boot.bin
 
-KERNEL_ASM_SRC := kernel/kernel_entry.asm kernel/idt_asm.asm
-KERNEL_ASM_OBJ := build/kernel_entry.o build/idt_asm.o
+KERNEL_ASM_SRC := kernel/kernel_entry.asm kernel/idt_asm.asm boot/switch.asm
+KERNEL_ASM_OBJ := build/kernel_entry.o build/idt_asm.o build/switch.o
 
 KERNEL_C_SRCS  := kernel/kernel.c \
                    kernel/vga.c    \
@@ -53,7 +53,9 @@ KERNEL_C_SRCS  := kernel/kernel.c \
                    kernel/pic.c     \
                    kernel/idt.c     \
                    kernel/pit.c     \
-                   kernel/timer.c
+                   kernel/timer.c    \
+                   kernel/process.c  \
+                   kernel/scheduler.c
 
 # Add your new source files below as the course progresses:
 # Lecture 09: kernel/process.c kernel/scheduler.c
@@ -89,6 +91,11 @@ $(BOOT_BIN): $(BOOT_SRC)
 # Kernel: Assembly object
 # ---------------------------------------------------------------------------
 build/%.o: kernel/%.asm
+	@mkdir -p build
+	@echo "  [AS]  $<"
+	$(AS) $(ASFLAGS) $< -o $@
+
+build/%.o: boot/%.asm
 	@mkdir -p build
 	@echo "  [AS]  $<"
 	$(AS) $(ASFLAGS) $< -o $@
