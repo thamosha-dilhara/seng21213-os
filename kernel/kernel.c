@@ -24,6 +24,9 @@
 #include "vga.h"
 #include "keyboard.h"
 #include "../include/types.h"
+#include "../include/pic.h"
+#include "../include/idt.h"
+#include "../include/timer.h"
 
 /* ---------------------------------------------------------------------------
  * Forward declarations of shell commands
@@ -33,6 +36,7 @@ static void cmd_clear(void);
 static void cmd_about(void);
 static void cmd_echo(const char *args);
 static void cmd_mem(void);
+static void cmd_ticks(void);
 
 /* ---------------------------------------------------------------------------
  * Utility: minimal string helpers (no libc in a freestanding kernel!)
@@ -146,6 +150,17 @@ static void cmd_echo(const char *args) {
     vga_puts("\n");
 }
 
+static void cmd_ticks(void) {
+    vga_puts_color("\n  Timer ticks: ", VGA_LIGHT_CYAN, VGA_BLACK);
+    uint32_t t = timer_get_ticks();
+    char buf[12];
+    int i = 0;
+    if (t == 0) { buf[i++] = '0'; }
+    while (t > 0) { buf[i++] = '0' + (t % 10); t /= 10; }
+    while (i > 0) { vga_putchar(buf[--i]); }
+    vga_puts("\n\n");
+}
+
 static void cmd_mem(void) {
     /* Stage 0 stub – students implement the real PMM in Lecture 11 */
     vga_puts_color("\n  Memory Map (stub – implement PMM in Lecture 11)\n",
@@ -182,6 +197,7 @@ static void shell_run(void) {
         if (k_strcmp(cmd, "clear") == 0) { cmd_clear(); continue; }
         if (k_strcmp(cmd, "about") == 0) { cmd_about(); continue; }
         if (k_strcmp(cmd, "mem")   == 0) { cmd_mem();   continue; }
+        if (k_strcmp(cmd, "ticks") == 0) { cmd_ticks(); continue; }
 
         if (k_strncmp(cmd, "echo ", 5) == 0) {
             cmd_echo(k_ltrim(cmd + 5));
@@ -213,6 +229,10 @@ static void shell_run(void) {
 void kernel_main(void) {
     vga_init();
     kb_init();
+    pic_remap();
+    idt_init();
+    timer_init(100);
+    __asm__ __volatile__("sti");
     print_splash();
     shell_run();
 
