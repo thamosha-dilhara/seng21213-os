@@ -55,7 +55,11 @@ KERNEL_C_SRCS  := kernel/kernel.c \
                    kernel/pit.c     \
                    kernel/timer.c    \
                    kernel/process.c  \
-                   kernel/scheduler.c
+                   kernel/scheduler.c \
+                   kernel/thread.c    \
+                   kernel/mutex.c     \
+                   kernel/semaphore.c \
+                   kernel/race_demo.c
 
 # Add your new source files below as the course progresses:
 # Lecture 09: kernel/process.c kernel/scheduler.c
