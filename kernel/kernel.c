@@ -30,6 +30,7 @@
 #include "../include/process.h"
 #include "../include/scheduler.h"
 #include "../include/race_demo.h"
+#include "../include/prodcons.h"
 
 /* ---------------------------------------------------------------------------
  * Forward declarations of shell commands
@@ -42,6 +43,8 @@ static void cmd_mem(void);
 static void cmd_ticks(void);
 static void cmd_ps(void);
 static void cmd_race(int with_mutex);
+static void cmd_prodcons(void);
+static void cmd_pcdebug(void);
 
 /* ---------------------------------------------------------------------------
  * Utility: minimal string helpers (no libc in a freestanding kernel!)
@@ -240,6 +243,72 @@ static void cmd_race(int with_mutex) {
     }
 }
 
+static void cmd_prodcons(void) {
+    vga_puts_color("\n  Producer-Consumer demo (bounded buffer, size 5)\n",
+                   VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_puts("  ---------------------------------------\n");
+    vga_puts("  Producer makes 20 items, Consumer takes them, using\n");
+    vga_puts("  semaphores (empty/full) and a mutex for the buffer.\n");
+    vga_puts_color("  Running... (watch for a moment)\n", VGA_YELLOW, VGA_BLACK);
+
+    prodcons_reset();
+    create_process((void (*)(void))prodcons_producer_fn(), "producer");
+    create_process((void (*)(void))prodcons_consumer_fn(), "consumer");
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        pcb_t *p = process_table_get(i);
+        if (p->state == PROC_READY &&
+            (k_strcmp(p->name, "producer") == 0 || k_strcmp(p->name, "consumer") == 0)) {
+            scheduler_add(i);
+        }
+    }
+
+    uint32_t wait_loops = 0;
+    while (!prodcons_finished()) {
+        __asm__ __volatile__("hlt");
+        wait_loops++;
+        if (wait_loops > 2000) {
+            vga_puts_color("\n  [TIMEOUT] Not finished after waiting. Debug state:\n",
+                           VGA_LIGHT_RED, VGA_BLACK);
+            vga_puts("  sem_empty count: "); print_uint((uint32_t)prodcons_debug_empty());
+            vga_puts("\n  sem_full  count: "); print_uint((uint32_t)prodcons_debug_full());
+            vga_puts("\n  mutex locked:    "); print_uint((uint32_t)prodcons_debug_mutex_locked());
+            vga_puts("\n  producer done:   "); print_uint((uint32_t)prodcons_debug_producer_done());
+            vga_puts("\n  consumer done:   "); print_uint((uint32_t)prodcons_debug_consumer_done());
+            vga_puts("\n  produced so far: "); print_uint(prodcons_items_produced());
+            vga_puts("\n  consumed so far: "); print_uint(prodcons_items_consumed());
+            vga_puts("\n\n");
+            return;
+        }
+    }
+
+    vga_puts_color("\n  Items produced: ", VGA_LIGHT_GREEN, VGA_BLACK);
+    print_uint(prodcons_items_produced());
+    vga_puts_color("\n  Items consumed: ", VGA_LIGHT_GREEN, VGA_BLACK);
+    print_uint(prodcons_items_consumed());
+
+    if (!prodcons_corruption_detected() &&
+        prodcons_items_produced() == 20 && prodcons_items_consumed() == 20) {
+        vga_puts_color("\n  RESULT: Correct! All items consumed in order, no corruption.\n\n",
+                       VGA_LIGHT_GREEN, VGA_BLACK);
+    } else {
+        vga_puts_color("\n  RESULT: Corruption detected in buffer!\n\n",
+                       VGA_LIGHT_RED, VGA_BLACK);
+    }
+}
+
+static void cmd_pcdebug(void) {
+    vga_puts_color("\n  Producer-Consumer debug state\n", VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_puts("  sem_empty count: "); print_uint((uint32_t)prodcons_debug_empty());
+    vga_puts("\n  sem_full  count: "); print_uint((uint32_t)prodcons_debug_full());
+    vga_puts("\n  mutex locked:    "); print_uint((uint32_t)prodcons_debug_mutex_locked());
+    vga_puts("\n  producer done:   "); print_uint((uint32_t)prodcons_debug_producer_done());
+    vga_puts("\n  consumer done:   "); print_uint((uint32_t)prodcons_debug_consumer_done());
+    vga_puts("\n  produced so far: "); print_uint(prodcons_items_produced());
+    vga_puts("\n  consumed so far: "); print_uint(prodcons_items_consumed());
+    vga_puts("\n\n");
+}
+
 static void cmd_mem(void) {
     /* Stage 0 stub – students implement the real PMM in Lecture 11 */
     vga_puts_color("\n  Memory Map (stub – implement PMM in Lecture 11)\n",
@@ -280,6 +349,8 @@ static void shell_run(void) {
         if (k_strcmp(cmd, "ps")    == 0) { cmd_ps();    continue; }
         if (k_strcmp(cmd, "race")       == 0) { cmd_race(0); continue; }
         if (k_strcmp(cmd, "race_mutex") == 0) { cmd_race(1); continue; }
+        if (k_strcmp(cmd, "prodcons")    == 0) { cmd_prodcons(); continue; }
+        if (k_strcmp(cmd, "pcdebug")     == 0) { cmd_pcdebug();  continue; }
 
         if (k_strncmp(cmd, "echo ", 5) == 0) {
             cmd_echo(k_ltrim(cmd + 5));
