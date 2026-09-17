@@ -60,7 +60,8 @@ KERNEL_C_SRCS  := kernel/kernel.c \
                    kernel/mutex.c     \
                    kernel/semaphore.c \
                    kernel/race_demo.c \
-                   kernel/prodcons.c
+                   kernel/prodcons.c \
+                   kernel/pmm.c
 
 # Add your new source files below as the course progresses:
 # Lecture 09: kernel/process.c kernel/scheduler.c

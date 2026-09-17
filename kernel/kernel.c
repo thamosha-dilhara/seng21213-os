@@ -31,6 +31,7 @@
 #include "../include/scheduler.h"
 #include "../include/race_demo.h"
 #include "../include/prodcons.h"
+#include "../include/pmm.h"
 
 /* ---------------------------------------------------------------------------
  * Forward declarations of shell commands
@@ -45,6 +46,7 @@ static void cmd_ps(void);
 static void cmd_race(int with_mutex);
 static void cmd_prodcons(void);
 static void cmd_pcdebug(void);
+static void cmd_meminfo(void);
 
 /* ---------------------------------------------------------------------------
  * Utility: minimal string helpers (no libc in a freestanding kernel!)
@@ -309,6 +311,21 @@ static void cmd_pcdebug(void) {
     vga_puts("\n\n");
 }
 
+static void cmd_meminfo(void) {
+    uint32_t total = pmm_total_frames();
+    uint32_t used  = pmm_used_frames();
+    uint32_t free_ = pmm_free_frames();
+
+    vga_puts_color("\n  Physical Memory Manager\n", VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_puts("  ---------------------------------------\n");
+    vga_puts("  Total frames: "); print_uint(total);
+    vga_puts(" ("); print_uint(total * 4); vga_puts(" KB)\n");
+    vga_puts("  Used frames:  "); print_uint(used);
+    vga_puts(" ("); print_uint(used * 4); vga_puts(" KB)\n");
+    vga_puts("  Free frames:  "); print_uint(free_);
+    vga_puts(" ("); print_uint(free_ * 4); vga_puts(" KB)\n\n");
+}
+
 static void cmd_mem(void) {
     /* Stage 0 stub – students implement the real PMM in Lecture 11 */
     vga_puts_color("\n  Memory Map (stub – implement PMM in Lecture 11)\n",
@@ -351,6 +368,7 @@ static void shell_run(void) {
         if (k_strcmp(cmd, "race_mutex") == 0) { cmd_race(1); continue; }
         if (k_strcmp(cmd, "prodcons")    == 0) { cmd_prodcons(); continue; }
         if (k_strcmp(cmd, "pcdebug")     == 0) { cmd_pcdebug();  continue; }
+        if (k_strcmp(cmd, "meminfo")     == 0) { cmd_meminfo(); continue; }
 
         if (k_strncmp(cmd, "echo ", 5) == 0) {
             cmd_echo(k_ltrim(cmd + 5));
@@ -358,8 +376,7 @@ static void shell_run(void) {
         }
 
         /* Milestone stubs */
-        if (k_strcmp(cmd, "ps")      == 0 ||
-            k_strcmp(cmd, "kill")    == 0 ||
+        if (k_strcmp(cmd, "kill")    == 0 ||
             k_strcmp(cmd, "threads") == 0 ||
             k_strcmp(cmd, "free")    == 0 ||
             k_strcmp(cmd, "ls")      == 0 ||
@@ -384,6 +401,8 @@ void kernel_main(void) {
     kb_init();
     pic_remap();
     idt_init();
+
+    pmm_init();
 
     process_init();
     scheduler_init();
